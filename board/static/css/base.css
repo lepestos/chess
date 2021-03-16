@@ -1,0 +1,100 @@
+body{
+    background-color: black;
+}
+
+img{
+    user-select: none;
+    width: 100%;
+    height: auto;
+}
+
+button{
+    background-color: orange;
+    width: 256px;
+    height: 64px;
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+}
+
+#menu button{
+    display: none;
+    background-color: red;
+}
+
+.square{
+    width: 12.5%;
+	height: 12.5%;
+	float: left;
+    text-align:center;
+    vertical-align:middle;
+}
+
+.left-column {
+    color: white;
+    float: left;
+    width: 25%;
+    padding: 10px;
+}
+
+.right-column {
+    float: right;
+    width: 20%;
+    padding: 10px;
+}
+
+.square:hover{
+    background-color: white;
+}
+
+.white{
+    background-color: #9c9c9c;
+}
+
+.black{
+    background-color: #124000;
+}
+
+.black.highlighted{
+    background-color: #009127;
+}
+
+.white.highlighted{
+    background-color: #dbdbdb;
+}
+
+.last-move {
+    background-color: red;
+}
+
+.clear{
+    clear: left;
+}
+
+#chessboard{
+    //display: inline-block;
+    padding: 10px;
+    float: left;
+    width: 50%;
+    padding: 10px;
+}
+
+#message-box{
+    color: white;
+    border: 3px solid red;
+    padding: 10px;
+    text-align: center;
+}
+
+#promotion-box{
+    background-color: gray;
+    margin: auto;
+    width: 256px;
+	height: 64px;
+}

@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+    <div class="left-column">
+        <button id="ai-vs-ai">AI vs AI</button><br>
+        <button id="player-vs-ai">Player vs AI</button><br>
+        <button id="player-vs-player">Player vs Player</button><br><br>
+        <button id="reset">Reset the board</button>
+    </div>
+    <div id="chessboard"></div>
+    <div class="right-column">
+        <div id="message-box"></div>
+        <div id="promotion-box"></div>
+        <div id="menu">
+            <button class="difficulties" id="dif-1">Difficulty 1</button>
+            <button class="difficulties" id="dif-2">Difficulty 2</button>
+            <button class="difficulties" id="dif-3">Difficulty 3</button>
+            <button class="difficulties" id="dif-4">Difficulty 4</button>
+            <button class="difficulties" id="dif-5">Difficulty 5</button>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block script %}
+    let $chessboard = $('#chessboard');
+    let cls = '';
+    let id = '';
+    let tiles = [];
+    for (let i = 0; i < 8; i++){
+        for (let j = 0; j < 8; j++){
+            if ((i + j) % 2 === 0){
+                cls = 'white square';
+            }
+            else {
+                cls = 'black square';
+            }
+            if (j == 0){
+                cls += ' clear';
+            }
+            id = i*8 + j;
+            $chessboard.append('<div id="' + id + '"class="'+ cls +'"></div>');
+            tiles.push($('#' + id));
+        }
+    }
+    let bB = '<img class="pieces" src="{% static 'images/bB.svg' %}" alt="bB" \>';
+    let bQ = '<img class="pieces" src="{% static 'images/bQ.svg' %}" alt="bQ" \>';
+    let bN = '<img class="pieces" src="{% static 'images/bN.svg' %}" alt="bN" \>';
+    let bP = '<img class="pieces" src="{% static 'images/bP.svg' %}" alt="bP" \>';
+    let bR = '<img class="pieces" src="{% static 'images/bR.svg' %}" alt="bR" \>';
+    let bK = '<img class="pieces" src="{% static 'images/bK.svg' %}" alt="bK" \>';
+    let wB = '<img class="pieces" src="{% static 'images/wB.svg' %}" alt="wB" \>';
+    let wQ = '<img class="pieces" src="{% static 'images/wQ.svg' %}" alt="wQ" \>';
+    let wN = '<img class="pieces" src="{% static 'images/wN.svg' %}" alt="wN" \>';
+    let wP = '<img class="pieces" src="{% static 'images/wP.svg' %}" alt="wP" \>';
+    let wR = '<img class="pieces" src="{% static 'images/wR.svg' %}" alt="wR" \>';
+    let wK = '<img class="pieces" src="{% static 'images/wK.svg' %}" alt="wK" \>';
+
+
+    var cw = $('#chessboard').width();
+    $('#chessboard').css({'height':cw+'px'});
+    $( window ).resize(function() {
+        var cw = $('#chessboard').width();
+        $('#chessboard').css({'height':cw+'px'});
+    });
+
+
+    $('#ai-vs-ai').click(function(){
+        $('.difficulties').css({'display': 'block'});
+        $('.difficulties').click(function(event){
+            let diff = parseInt($(event.target).html().slice(-1));
+            moveSocket.send(JSON.stringify({
+                'command': 'ai_vs_ai',
+                'depth': diff
+            }));
+            $('.difficulties').css({'display': 'none'});
+        });
+    });
+
+    $('#player-vs-ai').click(function(){
+        $('.difficulties').css({'display': 'block'});
+        $('.difficulties').click(function(event){
+            let diff = parseInt($(event.target).html().slice(-1));
+            moveSocket.send(JSON.stringify({
+                'command': 'player_vs_ai',
+                'depth': diff
+            }));
+            $('.difficulties').css({'display': 'none'});
+        });
+    });
+
+    $('#player-vs-player').click(function(){
+        moveSocket.send(JSON.stringify({
+                'command': 'player_vs_player',
+        }));
+    });
+
+    $('#reset').click(function(){
+        for (let i = 0; i < 64; i++){
+            tiles[i].html('');
+            tiles[i].toggleClass('last-move', false);
+        }
+        moveSocket.send(JSON.stringify({
+                'command': 'start_game',
+        }));
+    });
+
+    var move_sound = new Audio('{% static 'audio/Move.mp3' %}');
+
+    const moveSocket = new WebSocket(
+        'ws://'
+        + window.location.host
+        + '/ws/'
+    );
+
+    moveSocket.onopen = function(e) {
+        moveSocket.send(JSON.stringify({'command': 'start_game'}));
+    }
+
+    moveSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        if (data['command'] === 'place'){
+            place(data['position'], data['piece']);
+        }
+        else if (data['command'] == 'highlight'){
+            highlight(data['tiles']);
+        }
+        else if (data['command'] == 'remove'){
+            remove(data['position'])
+        }
+        else if (data['command'] == 'play_move_sound'){
+            move_sound.play();
+        }
+        else if (data['command'] == 'show_message'){
+            show_message(data['message']);
+        }
+        else if (data['command'] == 'ask_for_promotion_piece'){
+            send_promotion_piece(data['from'], data['to']);
+        }
+        else if (data['command'] == 'update_board'){
+            update_board(data['remove'], data['place'], data['pieces']);
+        }
+        console.log(data);
+    };
+
+    moveSocket.onclose = function(e) {
+        console.error('Socket closed unexpectedly');
+    };
+
+
+
+    function remove(position){
+        tiles[parseInt(position)].html('');
+    }
+
+    function place(position, piece){
+        put(position, piece);
+        $(".pieces").draggable({
+            containment: $chessboard,
+            start: function( event, ui ) {
+                initial_id = $(this).parent().attr('id');
+                moveSocket.send(JSON.stringify({
+                    'command': 'highlight',
+                    'initial_square': initial_id
+                }));
+            },
+            stop: function( event, ui ){
+                for (let i = 0; i < tiles.length; i++){
+                    tiles[i].toggleClass('highlighted', false);
+                }
+            }
+        });
+    }
+
+
+    function highlight(squares){
+        for (let i = 0; i < squares.length; i++){
+            tiles[squares[i]].toggleClass('highlighted', true);
+        }
+    }
+
+    function put(tile, piece){
+        if (piece === 'r'){tiles[tile].append(bR)}
+        else if (piece === 'R'){tiles[tile].append(wR)}
+        else if (piece === 'n'){tiles[tile].append(bN)}
+        else if (piece === 'N'){tiles[tile].append(wN)}
+        else if (piece === 'b'){tiles[tile].append(bB)}
+        else if (piece === 'B'){tiles[tile].append(wB)}
+        else if (piece === 'q'){tiles[tile].append(bQ)}
+        else if (piece === 'Q'){tiles[tile].append(wQ)}
+        else if (piece === 'k'){tiles[tile].append(bK)}
+        else if (piece === 'K'){tiles[tile].append(wK)}
+        else if (piece === 'p'){tiles[tile].append(bP)}
+        else if (piece === 'P'){tiles[tile].append(wP)}
+    }
+
+    function update_board(remove_p, place_p, pieces){
+        for (let i = 0; i < tiles.length; i++){
+            tiles[i].toggleClass('last-move', false);
+        }
+        for (let i = 0; i < remove_p.length; i++){
+            remove(remove_p[i]);
+            tiles[remove_p[i]].toggleClass('last-move', true);
+        }
+        for (let i = 0; i < place_p.length; i++){
+            place(place_p[i], pieces[i]);
+        }
+        moveSocket.send(JSON.stringify({
+            'command' : 'pass_move'
+        }));
+    }
+
+    function send_promotion_piece(from, to){
+        $prom_box = $('#promotion-box');
+        let white_list = [wQ, wN, wB, wR];
+        let black_list = [bQ, bN, bB, bR];
+        let list = []
+        if (Math.floor(parseInt(to)/8) == 0){
+            list = white_list;
+        }
+        else{
+            list = black_list
+        }
+        $prom_box.append(list)
+        $prom_box.children().toggleClass("pieces", false);
+        $(document).click(function() {
+            $prom_box.html('');
+        });
+        $prom_box.children().click(function(event) {
+            piece = $(event.target).attr("alt").charAt(1).toLowerCase();
+            moveSocket.send(JSON.stringify({
+                'command': 'confirm_promotion',
+                'from': from,
+                'to': to,
+                'prom_piece': piece
+            }));
+            $prom_box.html('');
+            event.stopPropagation();
+        });
+    }
+
+    function is_numeric(str){
+        return /^\d+$/.test(str);
+    }
+    function show_message(message){
+        $message_box = $('#message-box');
+        $message_box.html('');
+        $message_box.append('<h2>' + message + '</h2>');
+    }
+
+
+    $( ".square" ).droppable({drop: function(event, ui) {
+        initial_id = ui.draggable.parent().attr('id')
+        final_id = $(this).attr('id')
+        moved = (initial_id != final_id);
+        if (moved){
+            moveSocket.send(JSON.stringify({
+                'command': 'move_request',
+                'from': initial_id,
+                'to': final_id
+            }));
+        }
+        ui.draggable.css({'left': 0, 'top': 0})
+    }});
+{% endblock %}
